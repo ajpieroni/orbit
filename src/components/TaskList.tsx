@@ -37,7 +37,12 @@ export default function TaskList() {
 
         const data = await response.json();
         console.log('Tasks fetched successfully:', data);
-        setTasks(data);
+        
+        if (!data.tasks) {
+          throw new Error('Invalid response format: tasks array not found');
+        }
+        
+        setTasks(data.tasks);
       } catch (err) {
         console.error('Error fetching tasks:', err);
         setError({
