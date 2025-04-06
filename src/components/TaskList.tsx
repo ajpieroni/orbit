@@ -86,7 +86,7 @@ export default function TaskList() {
     );
   }
 
-  const formatProperty = (property: any) => {
+  const getPropertyValue = (property: any) => {
     if (!property) return 'Not set';
     
     switch (property.type) {
@@ -104,14 +104,8 @@ export default function TaskList() {
         return property.checkbox ? 'Yes' : 'No';
       case 'number':
         return property.number?.toString() || 'Not set';
-      case 'url':
-        return property.url || 'Not set';
-      case 'email':
-        return property.email || 'Not set';
-      case 'phone_number':
-        return property.phone_number || 'Not set';
       default:
-        return JSON.stringify(property);
+        return 'Not set';
     }
   };
 
@@ -120,58 +114,52 @@ export default function TaskList() {
       {tasks.map((task) => (
         <div key={task.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start">
-            <div>
+            <div className="flex-1">
               <h3 className="text-lg font-medium">{task.name}</h3>
-              {task.description && (
-                <p className="text-gray-600 mt-1">{task.description}</p>
-              )}
-            </div>
-            <div className="flex space-x-2">
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                task.priority === 'High' ? 'bg-red-100 text-red-800' :
-                task.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-green-100 text-green-800'
-              }`}>
-                {task.priority}
-              </span>
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                task.status === 'Done' ? 'bg-green-100 text-green-800' :
-                task.status === 'In progress' ? 'bg-blue-100 text-blue-800' :
-                'bg-gray-100 text-gray-800'
-              }`}>
-                {task.status}
-              </span>
-            </div>
-          </div>
-          
-          <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="font-medium text-gray-500">Due:</span>{' '}
-              {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'Not set'}
-            </div>
-            <div>
-              <span className="font-medium text-gray-500">Created:</span>{' '}
-              {new Date(task.createdAt).toLocaleDateString()}
-            </div>
-            <div>
-              <span className="font-medium text-gray-500">Last Updated:</span>{' '}
-              {new Date(task.updatedAt).toLocaleDateString()}
-            </div>
-            <div>
-              <span className="font-medium text-gray-500">ID:</span>{' '}
-              <span className="font-mono text-xs">{task.id}</span>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <h4 className="text-sm font-medium text-gray-500 mb-2">All Properties:</h4>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              {Object.entries(task.properties).map(([key, value]: [string, any]) => (
-                <div key={key}>
-                  <span className="font-medium text-gray-500">{key}:</span>{' '}
-                  <span className="text-gray-700">{formatProperty(value)}</span>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-gray-500">Priority:</span>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    task.priority === 'High' ? 'bg-red-100 text-red-800' :
+                    task.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-green-100 text-green-800'
+                  }`}>
+                    {task.priority}
+                  </span>
                 </div>
-              ))}
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-gray-500">Status:</span>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    task.status === 'Done' ? 'bg-green-100 text-green-800' :
+                    task.status === 'In progress' ? 'bg-blue-100 text-blue-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {task.status}
+                  </span>
+                </div>
+                {task.properties['Level of Effort'] && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-gray-500">Effort:</span>
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      {getPropertyValue(task.properties['Level of Effort'])}
+                    </span>
+                  </div>
+                )}
+                {task.properties['Zoom Out'] && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-gray-500">Zoom:</span>
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                      {getPropertyValue(task.properties['Zoom Out'])}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-500">Due:</span>
+              <span className="text-sm text-gray-700">
+                {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}
+              </span>
             </div>
           </div>
         </div>
