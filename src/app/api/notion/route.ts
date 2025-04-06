@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 
 // Server-side environment variables
 const NOTION_API_KEY = process.env.NOTION_API_KEY;
@@ -23,7 +24,7 @@ console.log('Server Environment Variables Debug:', {
   }
 });
 
-const headers = {
+const notionHeaders = {
   'Authorization': `Bearer ${NOTION_API_KEY}`,
   'Content-Type': 'application/json',
   'Notion-Version': NOTION_API_VERSION,
@@ -32,7 +33,9 @@ const headers = {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '5', 10);
+    const limit = parseInt(searchParams.get('limit') || '100', 10);
+    const startCursor = searchParams.get('startCursor');
+    const dueToday = searchParams.get('dueToday') === 'true';
 
     if (!NOTION_API_KEY || !DATABASE_ID) {
       console.error('Missing Notion configuration:', {
@@ -50,11 +53,15 @@ export async function GET(request: Request) {
       );
     }
 
+    const today = new Date().toISOString().split('T')[0];
+    
     const filter = {
       and: [
         { property: 'Done', checkbox: { equals: false } },
-        { property: 'Priority', status: { does_not_equal: 'Someday' } },
         { property: 'Status', status: { does_not_equal: 'Done' } },
+        { property: 'Status', status: { does_not_equal: 'Handed Off' } },
+        { property: 'Status', status: { does_not_equal: 'Deprecated' } },
+        ...(dueToday ? [{ property: 'Due', date: { on_or_after: today } }] : []),
       ],
     };
 
@@ -67,20 +74,26 @@ export async function GET(request: Request) {
       url,
       method: 'POST',
       headers: {
-        ...headers,
+        ...notionHeaders,
         Authorization: 'Bearer ***' + NOTION_API_KEY.slice(-4)
       },
       body: {
         filter,
         sorts,
-        page_size: limit
+        page_size: limit,
+        ...(startCursor ? { start_cursor: startCursor } : {})
       }
     });
 
     const response = await fetch(url, {
       method: 'POST',
-      headers,
-      body: JSON.stringify({ filter, sorts, page_size: limit }),
+      headers: notionHeaders,
+      body: JSON.stringify({ 
+        filter, 
+        sorts, 
+        page_size: limit,
+        ...(startCursor ? { start_cursor: startCursor } : {})
+      }),
       next: {
         revalidate: 60 // Revalidate cache every 60 seconds
       }
@@ -103,7 +116,8 @@ export async function GET(request: Request) {
     console.log('Notion API Response:', {
       hasMore: data.has_more,
       nextCursor: data.next_cursor,
-      resultCount: data.results?.length || 0
+      resultCount: data.results?.length || 0,
+      totalTasks: data.results?.length || 0
     });
 
     const tasks = data.results.map((notionTask: any) => {
@@ -122,17 +136,12 @@ export async function GET(request: Request) {
       };
     });
 
-    console.log('Converted tasks:', {
-      count: tasks.length,
-      tasks: tasks.map(t => ({
-        id: t.id,
-        name: t.name,
-        priority: t.priority,
-        status: t.status
-      }))
-    });
-
-    return NextResponse.json(tasks, {
+    return NextResponse.json({
+      tasks,
+      hasMore: data.has_more,
+      nextCursor: data.next_cursor,
+      totalTasks: data.results?.length || 0
+    }, {
       headers: {
         'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30'
       }

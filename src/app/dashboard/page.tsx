@@ -1,165 +1,247 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
-import TaskList from '@/components/TaskList';
+import { useEffect, useState } from 'react';
 import { Task } from '@/types/task';
+import Link from 'next/link';
+import { Calendar, Clock, CheckCircle, AlertTriangle, Folder } from 'lucide-react';
 
-interface DashboardStats {
-  totalTasks: number;
-  completedTasks: number;
-  highPriorityTasks: number;
-  overdueTasks: number;
-  upcomingDeadlines: number;
+interface ProjectStats {
+  total: number;
+  completed: number;
+  overdue: number;
 }
 
-export default function Dashboard() {
+export default function DashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [stats, setStats] = useState<DashboardStats>({
-    totalTasks: 0,
-    completedTasks: 0,
-    highPriorityTasks: 0,
-    overdueTasks: 0,
-    upcomingDeadlines: 0
-  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const calculateStats = useCallback((tasks: Task[]) => {
-    if (!Array.isArray(tasks)) {
-      console.error('Tasks is not an array:', tasks);
-      return {
-        totalTasks: 0,
-        completedTasks: 0,
-        highPriorityTasks: 0,
-        overdueTasks: 0,
-        upcomingDeadlines: 0
-      };
-    }
-
-    const now = new Date();
-    const oneWeekFromNow = new Date();
-    oneWeekFromNow.setDate(oneWeekFromNow.getDate() + 7);
-
-    return {
-      totalTasks: tasks.length,
-      completedTasks: tasks.filter((t: Task) => t.status === 'Done').length,
-      highPriorityTasks: tasks.filter((t: Task) => t.priority === 'High').length,
-      overdueTasks: tasks.filter((t: Task) => 
-        t.dueDate && new Date(t.dueDate) < now && t.status !== 'Done'
-      ).length,
-      upcomingDeadlines: tasks.filter((t: Task) => 
-        t.dueDate && new Date(t.dueDate) > now && new Date(t.dueDate) <= oneWeekFromNow
-      ).length
-    };
-  }, []);
 
   useEffect(() => {
     const fetchTasks = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/tasks', {
-          next: { revalidate: 60 }
-        });
+        const response = await fetch('/api/notion?dueToday=true');
         if (!response.ok) {
           throw new Error('Failed to fetch tasks');
         }
         const data = await response.json();
-        if (data.tasks && Array.isArray(data.tasks)) {
-          setTasks(data.tasks);
-          setStats(calculateStats(data.tasks));
-        } else {
-          console.error('Invalid tasks data:', data);
-          setTasks([]);
-          setStats(calculateStats([]));
-        }
+        setTasks(data.tasks);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
-        setTasks([]);
-        setStats(calculateStats([]));
       } finally {
         setLoading(false);
       }
     };
 
     fetchTasks();
-  }, [calculateStats]);
+  }, []);
 
-  const statCards = useMemo(() => [
-    { title: 'Total Tasks', value: stats.totalTasks, color: 'bg-blue-500' },
-    { title: 'Completed Tasks', value: stats.completedTasks, color: 'bg-green-500' },
-    { title: 'High Priority', value: stats.highPriorityTasks, color: 'bg-red-500' },
-    { title: 'Overdue Tasks', value: stats.overdueTasks, color: 'bg-yellow-500' },
-    { title: 'Upcoming Deadlines', value: stats.upcomingDeadlines, color: 'bg-purple-500' }
-  ], [stats]);
+  const getTaskStats = () => {
+    const today = new Date();
+    const overdueTasks = tasks.filter(task => 
+      task.dueDate && new Date(task.dueDate) < today
+    );
+    const dueToday = tasks.filter(task => 
+      task.dueDate && new Date(task.dueDate).toDateString() === today.toDateString()
+    );
+    const highPriority = tasks.filter(task => task.priority === 'High');
+    const completedToday = tasks.filter(task => 
+      task.status === 'Done' && 
+      new Date(task.updatedAt).toDateString() === today.toDateString()
+    );
+
+    return {
+      total: tasks.length,
+      overdue: overdueTasks.length,
+      dueToday: dueToday.length,
+      highPriority: highPriority.length,
+      completedToday: completedToday.length
+    };
+  };
+
+  const stats = getTaskStats();
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
-            <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
-              <p className="mt-4 text-lg text-gray-600">Loading dashboard...</p>
-            </div>
-          </div>
-        </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <h3 className="text-red-800 font-medium">Error</h3>
-            <p className="text-red-600 mt-1">{error}</p>
-          </div>
-        </div>
+      <div className="p-4 text-red-500">
+        Error: {error}
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Dashboard</h1>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-          {statCards.map(({ title, value, color }) => (
-            <div key={title} className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-lg font-medium text-black">{title}</h3>
-              <p className="mt-2 text-3xl font-semibold text-gray-900">{value}</p>
-              <div className={`mt-4 h-1 ${color} rounded-full`}></div>
+    <div className="space-y-6">
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Due Today</p>
+              <p className="text-2xl font-semibold text-gray-900">{stats.dueToday}</p>
+            </div>
+            <div className="p-3 bg-blue-50 rounded-full">
+              <Calendar className="w-6 h-6 text-blue-500" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Overdue</p>
+              <p className="text-2xl font-semibold text-gray-900">{stats.overdue}</p>
+            </div>
+            <div className="p-3 bg-red-50 rounded-full">
+              <Clock className="w-6 h-6 text-red-500" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">High Priority</p>
+              <p className="text-2xl font-semibold text-gray-900">{stats.highPriority}</p>
+            </div>
+            <div className="p-3 bg-yellow-50 rounded-full">
+              <AlertTriangle className="w-6 h-6 text-yellow-500" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Completed Today</p>
+              <p className="text-2xl font-semibold text-gray-900">{stats.completedToday}</p>
+            </div>
+            <div className="p-3 bg-green-50 rounded-full">
+              <CheckCircle className="w-6 h-6 text-green-500" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tasks Due Today */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Tasks Due Today</h2>
+            <Link 
+              href="/dashboard/tasks" 
+              className="text-sm text-blue-600 hover:text-blue-700"
+            >
+              View All
+            </Link>
+          </div>
+        </div>
+        <div className="divide-y divide-gray-200">
+          {tasks
+            .filter(task => 
+              task.dueDate && 
+              new Date(task.dueDate).toDateString() === new Date().toDateString()
+            )
+            .map(task => (
+              <div key={task.id} className="p-4 hover:bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900">{task.name}</h3>
+                    <p className="text-sm text-gray-500">
+                      {task.properties['Zoom Out']?.formula?.string || 'No Project'}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      task.priority === 'High' ? 'bg-red-100 text-red-800' :
+                      task.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-green-100 text-green-800'
+                    }`}>
+                      {task.priority}
+                    </span>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      task.status === 'Done' ? 'bg-green-100 text-green-800' :
+                      task.status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {task.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          {tasks.filter(task => 
+            task.dueDate && 
+            new Date(task.dueDate).toDateString() === new Date().toDateString()
+          ).length === 0 && (
+            <div className="p-4 text-center text-gray-500">
+              No tasks due today
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Projects Overview */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Projects Overview</h2>
+            <Link 
+              href="/dashboard/projects" 
+              className="text-sm text-blue-600 hover:text-blue-700"
+            >
+              View All
+            </Link>
+          </div>
+        </div>
+        <div className="divide-y divide-gray-200">
+          {Object.entries(
+            tasks.reduce((acc, task) => {
+              const project = task.properties['Zoom Out']?.formula?.string || 'Uncategorized';
+              if (!acc[project]) {
+                acc[project] = {
+                  total: 0,
+                  completed: 0,
+                  overdue: 0
+                };
+              }
+              acc[project].total++;
+              if (task.status === 'Done') acc[project].completed++;
+              if (task.dueDate && new Date(task.dueDate) < new Date()) acc[project].overdue++;
+              return acc;
+            }, {} as Record<string, ProjectStats>)
+          ).map(([project, stats]) => (
+            <div key={project} className="p-4 hover:bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-blue-50 rounded-full">
+                    <Folder className="w-5 h-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900">{project}</h3>
+                    <p className="text-sm text-gray-500">
+                      {stats.completed} of {stats.total} tasks completed
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  {stats.overdue > 0 && (
+                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
+                      {stats.overdue} overdue
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           ))}
         </div>
-
-        {/* Upcoming Deadlines */}
-        {stats.upcomingDeadlines > 0 && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8">
-            <h3 className="font-medium text-yellow-800 mb-2">Upcoming Deadlines</h3>
-            <div className="space-y-2">
-              {tasks
-                .filter((t: Task) => 
-                  t.dueDate && 
-                  new Date(t.dueDate) > new Date() && 
-                  new Date(t.dueDate) <= new Date(new Date().setDate(new Date().getDate() + 7))
-                )
-                .map((task: Task) => (
-                  <div key={task.id} className="flex justify-between items-center">
-                    <span>{task.name}</span>
-                    <span className="text-sm text-yellow-600">
-                      Due: {new Date(task.dueDate!).toLocaleDateString()}
-                    </span>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-
-        {/* Task List */}
-        <TaskList />
       </div>
     </div>
   );

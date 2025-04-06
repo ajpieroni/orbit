@@ -46,66 +46,68 @@ export default function ProjectsPage() {
   });
   const [expandedSections, setExpandedSections] = useState<{ [key: string]: boolean }>({});
 
-  const fetchTasks = async (cursor: string | null = null) => {
+  const fetchAllTasks = async () => {
     try {
-      if (!cursor) {
-        setLoading(true);
-      } else {
-        setLoadingMore(true);
-      }
+      setLoading(true);
+      let currentCursor = null;
+      let allTasks: Task[] = [];
+      let totalTasksFetched = 0;
 
-      const url = new URL('/api/tasks', window.location.origin);
-      if (cursor) {
-        url.searchParams.set('cursor', cursor);
-      }
+      do {
+        const url = new URL('/api/notion', window.location.origin);
+        if (currentCursor) {
+          url.searchParams.set('startCursor', currentCursor);
+        }
+        url.searchParams.set('dueToday', 'true');
 
-      const response = await fetch(url.toString());
-      if (!response.ok) {
-        throw new Error('Failed to fetch tasks');
-      }
-      const data = await response.json();
-      
-      if (!cursor) {
-        setTasks(data.tasks);
-      } else {
-        setTasks(prevTasks => [...prevTasks, ...data.tasks]);
-      }
-      
-      setHasMore(data.hasMore);
-      setNextCursor(data.nextCursor);
-      calculateProjectStats(data.tasks);
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+          throw new Error('Failed to fetch tasks');
+        }
+
+        const data = await response.json();
+        allTasks = [...allTasks, ...data.tasks];
+        totalTasksFetched += data.tasks.length;
+        currentCursor = data.nextCursor;
+
+        // Update the UI progressively
+        setTasks(allTasks);
+        calculateProjectStats(data.tasks);
+        
+        console.log(`Fetched ${data.tasks.length} tasks. Total so far: ${totalTasksFetched}`);
+      } while (currentCursor);
+
+      console.log(`Finished fetching all tasks. Total: ${totalTasksFetched}`);
+      setHasMore(false);
+      setNextCursor(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
   };
 
   useEffect(() => {
-    fetchTasks();
+    fetchAllTasks();
   }, []);
 
-  const handleLoadMore = () => {
-    if (nextCursor) {
-      fetchTasks(nextCursor);
-    }
-  };
-
-  const calculateProjectStats = (tasks: any[]) => {
+  const calculateProjectStats = (newTasks: any[]) => {
     const now = new Date();
     const oneWeekFromNow = new Date();
     oneWeekFromNow.setDate(oneWeekFromNow.getDate() + 7);
 
+    // Calculate stats for all tasks, not just the new ones
+    const allTasks = [...tasks, ...newTasks];
+    
     const stats: ProjectStats = {
-      totalTasks: tasks.length,
-      completedTasks: tasks.filter(t => t.status === 'Done').length,
-      inProgressTasks: tasks.filter(t => t.status === 'In progress').length,
-      upcomingDeadlines: tasks.filter(t => {
+      totalTasks: allTasks.length,
+      completedTasks: allTasks.filter(t => t.status === 'Done').length,
+      inProgressTasks: allTasks.filter(t => t.status === 'In progress').length,
+      upcomingDeadlines: allTasks.filter(t => {
         const dueDate = t.dueDate ? new Date(t.dueDate) : null;
         return dueDate && dueDate > now && dueDate <= oneWeekFromNow;
       }).length,
-      overdueTasks: tasks.filter(t => {
+      overdueTasks: allTasks.filter(t => {
         const dueDate = t.dueDate ? new Date(t.dueDate) : null;
         return dueDate && dueDate < now && t.status !== 'Done';
       }).length
@@ -114,26 +116,26 @@ export default function ProjectsPage() {
     setProjectStats(stats);
   };
 
-  const getProjectStats = (tasks: Task[]) => {
+  const getProjectStats = (projectTasks: Task[]) => {
     const now = new Date();
     const oneWeekFromNow = new Date();
     oneWeekFromNow.setDate(oneWeekFromNow.getDate() + 7);
 
     return {
-      totalTasks: tasks.length,
-      completedTasks: tasks.filter(t => t.status === 'Done').length,
-      inProgressTasks: tasks.filter(t => t.status === 'In progress').length,
-      upcomingDeadlines: tasks.filter(t => {
+      totalTasks: projectTasks.length,
+      completedTasks: projectTasks.filter(t => t.status === 'Done').length,
+      inProgressTasks: projectTasks.filter(t => t.status === 'In progress').length,
+      upcomingDeadlines: projectTasks.filter(t => {
         const dueDate = t.dueDate ? new Date(t.dueDate) : null;
         return dueDate && dueDate > now && dueDate <= oneWeekFromNow;
       }).length,
-      overdueTasks: tasks.filter(t => {
+      overdueTasks: projectTasks.filter(t => {
         const dueDate = t.dueDate ? new Date(t.dueDate) : null;
         return dueDate && dueDate < now && t.status !== 'Done';
       }).length,
-      highPriorityTasks: tasks.filter(t => t.priority === 'High').length,
-      mediumPriorityTasks: tasks.filter(t => t.priority === 'Medium').length,
-      lowPriorityTasks: tasks.filter(t => t.priority === 'Low').length
+      highPriorityTasks: projectTasks.filter(t => t.priority === 'High').length,
+      mediumPriorityTasks: projectTasks.filter(t => t.priority === 'Medium').length,
+      lowPriorityTasks: projectTasks.filter(t => t.priority === 'Low').length
     };
   };
 
@@ -266,7 +268,7 @@ export default function ProjectsPage() {
   // Group tasks by project (Zoom Out property)
   const projects = tasks.reduce((acc: { [key: string]: Task[] }, task) => {
     const properties = task.properties;
-    let projectName = 'Other Tasks';
+    let projectName = '';
 
     // Check Projects property first
     if (properties['Projects']?.relation?.length > 0) {
@@ -276,7 +278,7 @@ export default function ProjectsPage() {
     else if (properties['Goals']?.relation?.length > 0) {
       projectName = 'Goals';
     }
-    // Then check Class property (excluding specific values)
+    // Then check Class property
     else if (properties['Class']?.select?.name) {
       const className = properties['Class'].select.name;
       if (className !== 'Academics' && className !== 'Admin' && className !== 'House') {
@@ -284,6 +286,11 @@ export default function ProjectsPage() {
       } else {
         projectName = className;
       }
+    }
+
+    // Only use 'Other Tasks' if no other condition was met
+    if (!projectName) {
+      projectName = 'Other Tasks';
     }
 
     if (!acc[projectName]) {
@@ -415,16 +422,11 @@ export default function ProjectsPage() {
         })}
       </div>
 
-      {/* Load More Button */}
-      {hasMore && (
+      {/* Loading indicator */}
+      {loading && (
         <div className="mt-6 text-center">
-          <button
-            onClick={handleLoadMore}
-            disabled={loadingMore}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loadingMore ? 'Loading...' : 'Load More'}
-          </button>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
+          <p className="mt-2 text-gray-900">Loading all tasks...</p>
         </div>
       )}
     </div>
