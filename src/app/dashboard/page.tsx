@@ -1,22 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import TaskList from '@/components/TaskList';
-
-interface Task {
-  id: string;
-  name: string;
-  description: string;
-  dueDate: string | null;
-  priority: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  zoom: string;
-  parentId: string | null;
-  children: Task[];
-  properties: any;
-}
+import { Task } from '@/types/task';
 
 interface DashboardStats {
   totalTasks: number;
@@ -38,60 +24,73 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const calculateStats = useCallback((tasks: Task[]) => {
+    if (!Array.isArray(tasks)) {
+      console.error('Tasks is not an array:', tasks);
+      return {
+        totalTasks: 0,
+        completedTasks: 0,
+        highPriorityTasks: 0,
+        overdueTasks: 0,
+        upcomingDeadlines: 0
+      };
+    }
+
+    const now = new Date();
+    const oneWeekFromNow = new Date();
+    oneWeekFromNow.setDate(oneWeekFromNow.getDate() + 7);
+
+    return {
+      totalTasks: tasks.length,
+      completedTasks: tasks.filter((t: Task) => t.status === 'Done').length,
+      highPriorityTasks: tasks.filter((t: Task) => t.priority === 'High').length,
+      overdueTasks: tasks.filter((t: Task) => 
+        t.dueDate && new Date(t.dueDate) < now && t.status !== 'Done'
+      ).length,
+      upcomingDeadlines: tasks.filter((t: Task) => 
+        t.dueDate && new Date(t.dueDate) > now && new Date(t.dueDate) <= oneWeekFromNow
+      ).length
+    };
+  }, []);
+
   useEffect(() => {
     const fetchTasks = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/tasks');
+        const response = await fetch('/api/tasks', {
+          next: { revalidate: 60 }
+        });
         if (!response.ok) {
           throw new Error('Failed to fetch tasks');
         }
         const data = await response.json();
         if (data.tasks && Array.isArray(data.tasks)) {
           setTasks(data.tasks);
+          setStats(calculateStats(data.tasks));
         } else {
           console.error('Invalid tasks data:', data);
           setTasks([]);
+          setStats(calculateStats([]));
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
         setTasks([]);
+        setStats(calculateStats([]));
       } finally {
         setLoading(false);
       }
     };
 
     fetchTasks();
-  }, []);
+  }, [calculateStats]);
 
-  useEffect(() => {
-    const calculateStats = () => {
-      if (!Array.isArray(tasks)) {
-        console.error('Tasks is not an array:', tasks);
-        return;
-      }
-
-      const now = new Date();
-      const oneWeekFromNow = new Date();
-      oneWeekFromNow.setDate(oneWeekFromNow.getDate() + 7);
-
-      const stats: DashboardStats = {
-        totalTasks: tasks.length,
-        completedTasks: tasks.filter((t: Task) => t.status === 'Done').length,
-        highPriorityTasks: tasks.filter((t: Task) => t.priority === 'High').length,
-        overdueTasks: tasks.filter((t: Task) => 
-          t.dueDate && new Date(t.dueDate) < now && t.status !== 'Done'
-        ).length,
-        upcomingDeadlines: tasks.filter((t: Task) => 
-          t.dueDate && new Date(t.dueDate) > now && new Date(t.dueDate) <= oneWeekFromNow
-        ).length
-      };
-
-      setStats(stats);
-    };
-
-    calculateStats();
-  }, [tasks]);
+  const statCards = useMemo(() => [
+    { title: 'Total Tasks', value: stats.totalTasks, color: 'bg-blue-500' },
+    { title: 'Completed Tasks', value: stats.completedTasks, color: 'bg-green-500' },
+    { title: 'High Priority', value: stats.highPriorityTasks, color: 'bg-red-500' },
+    { title: 'Overdue Tasks', value: stats.overdueTasks, color: 'bg-yellow-500' },
+    { title: 'Upcoming Deadlines', value: stats.upcomingDeadlines, color: 'bg-purple-500' }
+  ], [stats]);
 
   if (loading) {
     return (
@@ -124,30 +123,16 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white p-4 rounded-lg shadow-sm">
-            <h3 className="text-sm font-medium text-gray-500">Total Tasks</h3>
-            <p className="mt-2 text-2xl font-semibold">{stats.totalTasks}</p>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow-sm">
-            <h3 className="text-sm font-medium text-gray-500">Completed</h3>
-            <p className="mt-2 text-2xl font-semibold text-green-600">
-              {stats.completedTasks}
-            </p>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow-sm">
-            <h3 className="text-sm font-medium text-gray-500">High Priority</h3>
-            <p className="mt-2 text-2xl font-semibold text-red-600">
-              {stats.highPriorityTasks}
-            </p>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow-sm">
-            <h3 className="text-sm font-medium text-gray-500">Overdue</h3>
-            <p className="mt-2 text-2xl font-semibold text-red-600">
-              {stats.overdueTasks}
-            </p>
-          </div>
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">Dashboard</h1>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+          {statCards.map(({ title, value, color }) => (
+            <div key={title} className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+              <p className="mt-2 text-3xl font-semibold text-gray-900">{value}</p>
+              <div className={`mt-4 h-1 ${color} rounded-full`}></div>
+            </div>
+          ))}
         </div>
 
         {/* Upcoming Deadlines */}

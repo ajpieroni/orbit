@@ -132,6 +132,9 @@ export async function GET(request: Request) {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
+      next: {
+        revalidate: 60 // Revalidate cache every 60 seconds
+      }
     });
 
     if (!response.ok) {
@@ -168,6 +171,10 @@ export async function GET(request: Request) {
       tasks,
       hasMore: data.has_more,
       nextCursor: data.next_cursor
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30'
+      }
     });
 
   } catch (error) {

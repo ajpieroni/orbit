@@ -81,6 +81,9 @@ export async function GET(request: Request) {
       method: 'POST',
       headers,
       body: JSON.stringify({ filter, sorts, page_size: limit }),
+      next: {
+        revalidate: 60 // Revalidate cache every 60 seconds
+      }
     });
 
     if (!response.ok) {
@@ -127,7 +130,11 @@ export async function GET(request: Request) {
       }))
     });
 
-    return NextResponse.json(tasks);
+    return NextResponse.json(tasks, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30'
+      }
+    });
   } catch (error) {
     console.error('Error in Notion API route:', error);
     return NextResponse.json(
