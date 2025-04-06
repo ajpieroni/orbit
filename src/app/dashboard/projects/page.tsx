@@ -265,7 +265,27 @@ export default function ProjectsPage() {
 
   // Group tasks by project (Zoom Out property)
   const projects = tasks.reduce((acc: { [key: string]: Task[] }, task) => {
-    const projectName = task.properties['Zoom Out']?.formula?.string || 'Other Tasks';
+    const properties = task.properties;
+    let projectName = 'Other Tasks';
+
+    // Check Projects property first
+    if (properties['Projects']?.relation?.length > 0) {
+      projectName = 'Projects';
+    }
+    // Then check Goals property
+    else if (properties['Goals']?.relation?.length > 0) {
+      projectName = 'Goals';
+    }
+    // Then check Class property (excluding specific values)
+    else if (properties['Class']?.select?.name) {
+      const className = properties['Class'].select.name;
+      if (className !== 'Academics' && className !== 'Admin' && className !== 'House') {
+        projectName = className;
+      } else {
+        projectName = className;
+      }
+    }
+
     if (!acc[projectName]) {
       acc[projectName] = [];
     }
@@ -273,10 +293,24 @@ export default function ProjectsPage() {
     return acc;
   }, {});
 
-  // Sort projects alphabetically
+  // Sort projects alphabetically with specific order
   const sortedProjects = Object.keys(projects).sort((a, b) => {
-    if (a === 'Other Tasks') return 1;
-    if (b === 'Other Tasks') return -1;
+    // Define the desired order
+    const order = ['Projects', 'Goals', 'Academics', 'Admin', 'House'];
+    
+    // If both items are in the order array, sort by their position
+    const aIndex = order.indexOf(a);
+    const bIndex = order.indexOf(b);
+    
+    if (aIndex !== -1 && bIndex !== -1) {
+      return aIndex - bIndex;
+    }
+    
+    // If only one item is in the order array, it comes first
+    if (aIndex !== -1) return -1;
+    if (bIndex !== -1) return 1;
+    
+    // If neither item is in the order array, sort alphabetically
     return a.localeCompare(b);
   });
 
