@@ -108,7 +108,7 @@ export default function ProjectMindmap({ tasks }: ProjectMindmapProps) {
                   {isExpanded ? '▼' : '▶'}
                 </button>
               )}
-              <div className="font-medium">{task.name}</div>
+              <div className="font-medium text-black">{task.name}</div>
               {task.status && (
                 <span className={`px-2 py-0.5 text-xs rounded-full ${getStatusColor(task.status)}`}>
                   {task.status}

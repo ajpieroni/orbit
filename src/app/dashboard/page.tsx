@@ -128,7 +128,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
           {statCards.map(({ title, value, color }) => (
             <div key={title} className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+              <h3 className="text-lg font-medium text-black">{title}</h3>
               <p className="mt-2 text-3xl font-semibold text-gray-900">{value}</p>
               <div className={`mt-4 h-1 ${color} rounded-full`}></div>
             </div>

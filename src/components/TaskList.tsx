@@ -120,7 +120,7 @@ export default function TaskList() {
         <div key={task.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start">
             <div className="flex-1">
-              <h3 className="text-lg font-medium">{task.name}</h3>
+              <h3 className="text-lg font-medium text-black">{task.name}</h3>
               <div className="mt-2 flex flex-wrap gap-2">
                 <div className="flex items-center gap-1">
                   <span className="text-xs text-gray-500">Priority:</span>
