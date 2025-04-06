@@ -108,6 +108,29 @@ export default function ProjectsPage() {
     setProjectStats(stats);
   };
 
+  const getProjectStats = (tasks: Task[]) => {
+    const now = new Date();
+    const oneWeekFromNow = new Date();
+    oneWeekFromNow.setDate(oneWeekFromNow.getDate() + 7);
+
+    return {
+      totalTasks: tasks.length,
+      completedTasks: tasks.filter(t => t.status === 'Done').length,
+      inProgressTasks: tasks.filter(t => t.status === 'In progress').length,
+      upcomingDeadlines: tasks.filter(t => {
+        const dueDate = t.dueDate ? new Date(t.dueDate) : null;
+        return dueDate && dueDate > now && dueDate <= oneWeekFromNow;
+      }).length,
+      overdueTasks: tasks.filter(t => {
+        const dueDate = t.dueDate ? new Date(t.dueDate) : null;
+        return dueDate && dueDate < now && t.status !== 'Done';
+      }).length,
+      highPriorityTasks: tasks.filter(t => t.priority === 'High').length,
+      mediumPriorityTasks: tasks.filter(t => t.priority === 'Medium').length,
+      lowPriorityTasks: tasks.filter(t => t.priority === 'Low').length
+    };
+  };
+
   const transformTasksToHierarchy = (tasks: any[]): Task[] => {
     // First, create a map of tasks by their ID for quick lookup
     const taskMap = new Map<string, Task>();
@@ -227,19 +250,26 @@ export default function ProjectsPage() {
     );
   }
 
-  // Group tasks by project (Zoom Out level)
+  // Group tasks by project (Zoom Out property)
   const projects = tasks.reduce((acc: { [key: string]: Task[] }, task) => {
-    const project = task.properties['Zoom Out']?.select?.name || 'Uncategorized';
-    if (!acc[project]) {
-      acc[project] = [];
+    const projectName = task.properties['Zoom Out']?.formula?.string || 'Other Tasks';
+    if (!acc[projectName]) {
+      acc[projectName] = [];
     }
-    acc[project].push(task);
+    acc[projectName].push(task);
     return acc;
   }, {});
 
+  // Sort projects alphabetically
+  const sortedProjects = Object.keys(projects).sort((a, b) => {
+    if (a === 'Other Tasks') return 1;
+    if (b === 'Other Tasks') return -1;
+    return a.localeCompare(b);
+  });
+
   return (
     <div className="space-y-6">
-      {/* Project Stats */}
+      {/* Global Project Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white p-4 rounded-lg shadow-sm">
           <h3 className="text-sm font-medium text-gray-900">Total Tasks</h3>
@@ -273,12 +303,38 @@ export default function ProjectsPage() {
 
       {/* Projects Tree View */}
       <div className="bg-white rounded-lg shadow-sm p-6">
-        {Object.entries(projects).map(([project, projectTasks]) => (
-          <div key={project} className="mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">{project}</h2>
-            {renderTaskTree(transformTasksToHierarchy(projectTasks))}
-          </div>
-        ))}
+        {sortedProjects.map((project) => {
+          const projectTasks = projects[project];
+          const stats = getProjectStats(projectTasks);
+          return (
+            <div key={project} className="mb-8">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {project === 'Other Tasks' ? 'Other Tasks' : project}
+                </h2>
+                <div className="flex space-x-4">
+                  <div className="text-center">
+                    <div className="text-sm text-gray-900">Total Tasks</div>
+                    <div className="text-lg font-semibold">{stats.totalTasks}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm text-gray-900">Completed</div>
+                    <div className="text-lg font-semibold text-green-900">{stats.completedTasks}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm text-gray-900">In Progress</div>
+                    <div className="text-lg font-semibold text-blue-900">{stats.inProgressTasks}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm text-gray-900">High Priority</div>
+                    <div className="text-lg font-semibold text-red-900">{stats.highPriorityTasks}</div>
+                  </div>
+                </div>
+              </div>
+              {renderTaskTree(transformTasksToHierarchy(projectTasks))}
+            </div>
+          );
+        })}
       </div>
 
       {/* Load More Button */}

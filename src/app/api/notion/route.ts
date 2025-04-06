@@ -117,6 +117,8 @@ export async function GET(request: Request) {
         status: properties.Status?.status?.name || 'Not started',
         createdAt: new Date(notionTask.created_time),
         updatedAt: new Date(notionTask.last_edited_time),
+        properties: properties,
+        raw: notionTask
       };
     });
 
