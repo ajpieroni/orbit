@@ -1,49 +1,144 @@
 import { Task, TaskFilter, TaskSort } from '../types/task';
+import { notionService } from './notionService';
 
 class TaskService {
+  private static instance: TaskService;
+  private initialized = false;
   private tasks: Task[] = [];
   private storageKey = 'orbit-tasks';
-  private isInitialized = false;
 
-  constructor() {
-    // Only initialize on the client side
+  private constructor() {
+    console.log('TaskService constructor called');
     if (typeof window !== 'undefined') {
       this.initialize();
     }
   }
 
+  public static getInstance(): TaskService {
+    console.log('TaskService getInstance called, instance exists:', !!TaskService.instance);
+    if (!TaskService.instance) {
+      TaskService.instance = new TaskService();
+    }
+    return TaskService.instance;
+  }
+
   private initialize() {
-    if (this.isInitialized) return;
+    console.log('TaskService initialize called, already initialized:', this.initialized);
+    if (this.initialized) return;
     
     const storedTasks = localStorage.getItem(this.storageKey);
+    console.log('Local storage tasks:', {
+      hasStoredTasks: !!storedTasks,
+      storageKey: this.storageKey
+    });
+
     if (storedTasks) {
-      this.tasks = JSON.parse(storedTasks).map((task: any) => ({
-        ...task,
-        dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
-        createdAt: new Date(task.createdAt),
-        updatedAt: new Date(task.updatedAt),
-      }));
+      try {
+        this.tasks = JSON.parse(storedTasks).map((task: any) => ({
+          ...task,
+          dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
+          createdAt: new Date(task.createdAt),
+          updatedAt: new Date(task.updatedAt),
+        }));
+        console.log('Loaded tasks from local storage:', {
+          count: this.tasks.length,
+          tasks: this.tasks.map(t => ({
+            id: t.id,
+            name: t.name,
+            priority: t.priority,
+            status: t.status
+          }))
+        });
+      } catch (error) {
+        console.error('Error parsing local storage tasks:', {
+          error,
+          storedTasks
+        });
+        this.tasks = [];
+      }
+    } else {
+      console.log('No tasks in local storage, creating test tasks');
+      // Add some test tasks if none exist
+      this.tasks = [
+        {
+          id: crypto.randomUUID(),
+          name: "Complete project documentation",
+          description: "Write comprehensive documentation for the Orbit project",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        {
+          id: crypto.randomUUID(),
+          name: "Review pull requests",
+          description: "Review and merge pending pull requests",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        {
+          id: crypto.randomUUID(),
+          name: "Plan next sprint",
+          description: "Create tasks and estimate for the next sprint",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
+      ];
+      this.saveTasks();
     }
-    this.isInitialized = true;
+    this.initialized = true;
+    console.log('TaskService initialization complete:', {
+      initialized: this.initialized,
+      taskCount: this.tasks.length
+    });
   }
 
   private saveTasks() {
+    console.log('Saving tasks to local storage:', {
+      count: this.tasks.length,
+      storageKey: this.storageKey
+    });
     if (typeof window === 'undefined') return;
     localStorage.setItem(this.storageKey, JSON.stringify(this.tasks));
   }
 
-  async getRecentTasks(limit: number = 5): Promise<Task[]> {
-    if (!this.isInitialized) {
-      return [];
+  public async getRecentTasks(limit: number = 5): Promise<Task[]> {
+    console.log('TaskService getRecentTasks called:', {
+      limit,
+      initialized: this.initialized,
+      currentTaskCount: this.tasks.length
+    });
+
+    if (!this.initialized) {
+      this.initialize();
     }
-    return this.tasks
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .slice(0, limit);
+
+    try {
+      console.log('Attempting to fetch tasks from Notion');
+      const tasks = await notionService.getRecentTasks(limit);
+      console.log('Successfully fetched tasks from Notion:', {
+        count: tasks.length,
+        tasks: tasks.map(t => ({
+          id: t.id,
+          name: t.name,
+          priority: t.priority,
+          status: t.status
+        }))
+      });
+      return tasks;
+    } catch (error) {
+      console.error('Error fetching tasks from Notion, falling back to local storage:', {
+        error,
+        localTaskCount: this.tasks.length
+      });
+      return this.tasks
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, limit);
+    }
   }
 
   async createTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<Task> {
-    if (!this.isInitialized) {
-      throw new Error('TaskService not initialized');
+    console.log('Creating new task:', task);
+    if (!this.initialized) {
+      this.initialize();
     }
     const newTask: Task = {
       ...task,
@@ -53,12 +148,20 @@ class TaskService {
     };
     this.tasks.push(newTask);
     this.saveTasks();
+    console.log('Task created successfully:', {
+      id: newTask.id,
+      name: newTask.name
+    });
     return newTask;
   }
 
   async updateTask(id: string, updates: Partial<Task>): Promise<Task | null> {
+    console.log('Updating task:', { id, updates });
     const index = this.tasks.findIndex(task => task.id === id);
-    if (index === -1) return null;
+    if (index === -1) {
+      console.log('Task not found:', id);
+      return null;
+    }
 
     const updatedTask = {
       ...this.tasks[index],
@@ -67,21 +170,43 @@ class TaskService {
     };
     this.tasks[index] = updatedTask;
     this.saveTasks();
+    console.log('Task updated successfully:', {
+      id: updatedTask.id,
+      name: updatedTask.name
+    });
     return updatedTask;
   }
 
   async deleteTask(id: string): Promise<boolean> {
+    console.log('Deleting task:', id);
     const initialLength = this.tasks.length;
     this.tasks = this.tasks.filter(task => task.id !== id);
     this.saveTasks();
-    return this.tasks.length < initialLength;
+    const deleted = this.tasks.length < initialLength;
+    console.log('Task deletion result:', {
+      id,
+      deleted,
+      newTaskCount: this.tasks.length
+    });
+    return deleted;
   }
 
   async getTask(id: string): Promise<Task | null> {
-    return this.tasks.find(task => task.id === id) || null;
+    console.log('Getting task:', id);
+    const task = this.tasks.find(task => task.id === id) || null;
+    console.log('Task found:', task ? {
+      id: task.id,
+      name: task.name
+    } : null);
+    return task;
   }
 
   async getTasks(filter?: TaskFilter, sort?: TaskSort): Promise<Task[]> {
+    console.log('Getting tasks with filter and sort:', {
+      filter,
+      sort,
+      totalTasks: this.tasks.length
+    });
     let filteredTasks = [...this.tasks];
 
     if (filter) {
@@ -130,27 +255,53 @@ class TaskService {
       });
     }
 
+    console.log('Filtered and sorted tasks:', {
+      count: filteredTasks.length,
+      tasks: filteredTasks.map(t => ({
+        id: t.id,
+        name: t.name,
+        priority: t.priority,
+        status: t.status
+      }))
+    });
+
     return filteredTasks;
   }
 
   async getTasksByContext(context: string): Promise<Task[]> {
-    return this.tasks.filter(task => 
+    console.log('Getting tasks by context:', context);
+    const tasks = this.tasks.filter(task => 
       task.context?.includes(context) && 
       task.status !== 'Done'
     );
+    console.log('Found tasks for context:', {
+      context,
+      count: tasks.length
+    });
+    return tasks;
   }
 
   async getTasksByEnergyLevel(energyLevel: 'Low' | 'Medium' | 'High'): Promise<Task[]> {
-    return this.tasks.filter(task => 
+    console.log('Getting tasks by energy level:', energyLevel);
+    const tasks = this.tasks.filter(task => 
       task.energyLevel === energyLevel && 
       task.status !== 'Done'
     );
+    console.log('Found tasks for energy level:', {
+      energyLevel,
+      count: tasks.length
+    });
+    return tasks;
   }
 
   async getRecurringTasks(): Promise<Task[]> {
-    return this.tasks.filter(task => task.recurrence !== undefined);
+    console.log('Getting recurring tasks');
+    const tasks = this.tasks.filter(task => task.recurrence !== undefined);
+    console.log('Found recurring tasks:', {
+      count: tasks.length
+    });
+    return tasks;
   }
 }
 
-// Create a single instance of the service
-export const taskService = new TaskService(); 
+export const taskService = TaskService.getInstance(); 
