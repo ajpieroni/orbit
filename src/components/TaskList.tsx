@@ -6,11 +6,12 @@ interface Task {
   id: string;
   name: string;
   description: string;
-  dueDate: string;
+  dueDate: string | null;
   priority: string;
   status: string;
   createdAt: string;
   updatedAt: string;
+  properties: any; // All raw properties from Notion
 }
 
 interface ApiError {
@@ -85,6 +86,35 @@ export default function TaskList() {
     );
   }
 
+  const formatProperty = (property: any) => {
+    if (!property) return 'Not set';
+    
+    switch (property.type) {
+      case 'title':
+        return property.title?.[0]?.plain_text || 'Untitled';
+      case 'rich_text':
+        return property.rich_text?.[0]?.plain_text || '';
+      case 'date':
+        return property.date?.start ? new Date(property.date.start).toLocaleDateString() : 'Not set';
+      case 'select':
+        return property.select?.name || 'Not set';
+      case 'multi_select':
+        return property.multi_select?.map((item: any) => item.name).join(', ') || 'Not set';
+      case 'checkbox':
+        return property.checkbox ? 'Yes' : 'No';
+      case 'number':
+        return property.number?.toString() || 'Not set';
+      case 'url':
+        return property.url || 'Not set';
+      case 'email':
+        return property.email || 'Not set';
+      case 'phone_number':
+        return property.phone_number || 'Not set';
+      default:
+        return JSON.stringify(property);
+    }
+  };
+
   return (
     <div className="space-y-4 p-4">
       {tasks.map((task) => (
@@ -114,22 +144,34 @@ export default function TaskList() {
             </div>
           </div>
           
-          <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-gray-500">
+          <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="font-medium">Due:</span>{' '}
-              {new Date(task.dueDate).toLocaleDateString()}
+              <span className="font-medium text-gray-500">Due:</span>{' '}
+              {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'Not set'}
             </div>
             <div>
-              <span className="font-medium">Created:</span>{' '}
+              <span className="font-medium text-gray-500">Created:</span>{' '}
               {new Date(task.createdAt).toLocaleDateString()}
             </div>
             <div>
-              <span className="font-medium">Last Updated:</span>{' '}
+              <span className="font-medium text-gray-500">Last Updated:</span>{' '}
               {new Date(task.updatedAt).toLocaleDateString()}
             </div>
             <div>
-              <span className="font-medium">ID:</span>{' '}
+              <span className="font-medium text-gray-500">ID:</span>{' '}
               <span className="font-mono text-xs">{task.id}</span>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <h4 className="text-sm font-medium text-gray-500 mb-2">All Properties:</h4>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              {Object.entries(task.properties).map(([key, value]: [string, any]) => (
+                <div key={key}>
+                  <span className="font-medium text-gray-500">{key}:</span>{' '}
+                  <span className="text-gray-700">{formatProperty(value)}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
