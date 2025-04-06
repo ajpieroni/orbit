@@ -15,6 +15,9 @@ interface Task {
   parentId: string | null;
   children: Task[];
   properties: any;
+  dependencies?: string[]; // IDs of tasks this task depends on
+  estimatedTime?: number; // Estimated time in minutes
+  actualTime?: number; // Actual time spent in minutes
 }
 
 interface ProjectStats {
@@ -37,6 +40,7 @@ export default function ProjectsPage() {
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState<number>(0);
   const [projectStats, setProjectStats] = useState<ProjectStats>({
     totalTasks: 0,
     completedTasks: 0,
@@ -45,6 +49,8 @@ export default function ProjectsPage() {
     overdueTasks: 0
   });
   const [expandedSections, setExpandedSections] = useState<{ [key: string]: boolean }>({});
+  const [focusMode, setFocusMode] = useState(false);
+  const [selectedTimeBlock, setSelectedTimeBlock] = useState<Date | null>(null);
 
   const fetchAllTasks = async () => {
     try {
@@ -52,13 +58,13 @@ export default function ProjectsPage() {
       let currentCursor = null;
       let allTasks: Task[] = [];
       let totalTasksFetched = 0;
+      let totalCount = 0;
 
       do {
         const url = new URL('/api/notion', window.location.origin);
         if (currentCursor) {
           url.searchParams.set('startCursor', currentCursor);
         }
-        url.searchParams.set('dueToday', 'true');
 
         const response = await fetch(url.toString());
         if (!response.ok) {
@@ -68,16 +74,18 @@ export default function ProjectsPage() {
         const data = await response.json();
         allTasks = [...allTasks, ...data.tasks];
         totalTasksFetched += data.tasks.length;
+        totalCount = data.totalCount;
         currentCursor = data.nextCursor;
 
         // Update the UI progressively
         setTasks(allTasks);
+        setTotalCount(totalCount);
         calculateProjectStats(data.tasks);
         
-        console.log(`Fetched ${data.tasks.length} tasks. Total so far: ${totalTasksFetched}`);
+        console.log(`Fetched ${data.tasks.length} tasks. Total so far: ${totalTasksFetched} of ${totalCount}`);
       } while (currentCursor);
 
-      console.log(`Finished fetching all tasks. Total: ${totalTasksFetched}`);
+      console.log(`Finished fetching all tasks. Total: ${totalTasksFetched} of ${totalCount}`);
       setHasMore(false);
       setNextCursor(null);
     } catch (err) {
@@ -237,6 +245,38 @@ export default function ProjectsPage() {
     }));
   };
 
+  const toggleAllSections = () => {
+    const allExpanded = Object.values(expandedSections).every(value => value);
+    const newExpandedState = Object.keys(expandedSections).reduce((acc, key) => {
+      acc[key] = !allExpanded;
+      return acc;
+    }, {} as { [key: string]: boolean });
+    setExpandedSections(newExpandedState);
+  };
+
+  const toggleFocusMode = () => {
+    setFocusMode(!focusMode);
+  };
+
+  const calculateTaskProgress = (task: Task): number => {
+    if (task.status === 'Done') return 100;
+    if (task.status === 'In progress') return 50;
+    return 0;
+  };
+
+  const calculateProjectProgress = (tasks: Task[]): number => {
+    if (tasks.length === 0) return 0;
+    const totalProgress = tasks.reduce((sum, task) => sum + calculateTaskProgress(task), 0);
+    return Math.round((totalProgress / tasks.length) * 100);
+  };
+
+  const getTimeEstimate = (task: Task): string => {
+    if (!task.estimatedTime) return 'No estimate';
+    const hours = Math.floor(task.estimatedTime / 60);
+    const minutes = task.estimatedTime % 60;
+    return `${hours}h ${minutes}m`;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-8">
@@ -327,7 +367,7 @@ export default function ProjectsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white p-4 rounded-lg shadow-sm">
           <h3 className="text-sm font-medium text-gray-900">Total Tasks</h3>
-          <p className="mt-2 text-2xl font-semibold text-gray-900">{projectStats.totalTasks}</p>
+          <p className="mt-2 text-2xl font-semibold text-gray-900">{totalCount}</p>
         </div>
         <div className="bg-white p-4 rounded-lg shadow-sm">
           <h3 className="text-sm font-medium text-gray-900">Completed</h3>
@@ -355,12 +395,35 @@ export default function ProjectsPage() {
         </div>
       </div>
 
+      {/* Productivity Controls */}
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex space-x-4">
+          <button
+            onClick={toggleFocusMode}
+            className={`px-4 py-2 text-sm font-medium rounded-md ${
+              focusMode
+                ? 'bg-blue-100 text-blue-700'
+                : 'bg-white text-gray-700 border border-gray-300'
+            } hover:bg-gray-50`}
+          >
+            {focusMode ? 'Exit Focus Mode' : 'Enter Focus Mode'}
+          </button>
+          <button
+            onClick={toggleAllSections}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            {Object.values(expandedSections).every(value => value) ? 'Collapse All' : 'Expand All'}
+          </button>
+        </div>
+      </div>
+
       {/* Projects Tree View */}
       <div className="space-y-8">
         {sortedProjects.map((project) => {
           const projectTasks = projects[project];
           const stats = getProjectStats(projectTasks);
-          const isExpanded = expandedSections[project] ?? true; // Default to expanded
+          const isExpanded = expandedSections[project] ?? true;
+          const projectProgress = calculateProjectProgress(projectTasks);
 
           return (
             <div key={project} className="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -386,9 +449,20 @@ export default function ProjectsPage() {
                         />
                       </svg>
                     </button>
-                    <h2 className="text-2xl font-semibold text-gray-900">
-                      {project === 'Other Tasks' ? 'Other Tasks' : project}
-                    </h2>
+                    <div>
+                      <h2 className="text-2xl font-semibold text-gray-900">
+                        {project === 'Other Tasks' ? 'Other Tasks' : project}
+                      </h2>
+                      <div className="flex items-center mt-1">
+                        <div className="w-32 bg-gray-200 rounded-full h-2.5">
+                          <div
+                            className="bg-blue-600 h-2.5 rounded-full"
+                            style={{ width: `${projectProgress}%` }}
+                          ></div>
+                        </div>
+                        <span className="ml-2 text-sm text-gray-600">{projectProgress}%</span>
+                      </div>
+                    </div>
                   </div>
                   <div className="flex space-x-6">
                     <div className="text-center">
@@ -422,11 +496,40 @@ export default function ProjectsPage() {
         })}
       </div>
 
-      {/* Loading indicator */}
-      {loading && (
-        <div className="mt-6 text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
-          <p className="mt-2 text-gray-900">Loading all tasks...</p>
+      {/* Focus Mode Overlay */}
+      {focusMode && (
+        <div className="fixed inset-0 bg-white z-50 p-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-2xl font-bold">Focus Mode</h2>
+              <button
+                onClick={toggleFocusMode}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                Exit Focus Mode
+              </button>
+            </div>
+            <div className="space-y-4">
+              {tasks
+                .filter(task => task.priority === 'High' && task.status !== 'Done')
+                .map(task => (
+                  <div key={task.id} className="p-4 border rounded-lg">
+                    <h3 className="text-lg font-medium">{task.name}</h3>
+                    <div className="mt-2 flex items-center space-x-4">
+                      <span className="text-sm text-gray-600">
+                        Estimated: {getTimeEstimate(task)}
+                      </span>
+                      <div className="w-32 bg-gray-200 rounded-full h-2.5">
+                        <div
+                          className="bg-blue-600 h-2.5 rounded-full"
+                          style={{ width: `${calculateTaskProgress(task)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

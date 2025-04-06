@@ -66,7 +66,7 @@ export async function GET(request: Request) {
     };
 
     const sorts = [
-      { timestamp: 'created_time', direction: 'descending' },
+      { property: 'Due', direction: 'ascending' },
     ];
 
     const url = `https://api.notion.com/v1/databases/${DATABASE_ID}/query`;
@@ -136,11 +136,25 @@ export async function GET(request: Request) {
       };
     });
 
+    // Get total count from the database
+    const countResponse = await fetch(url, {
+      method: 'POST',
+      headers: notionHeaders,
+      body: JSON.stringify({ 
+        filter,
+        page_size: 1
+      })
+    });
+
+    const countData = await countResponse.json();
+    const totalCount = countData.results?.length || 0;
+
     return NextResponse.json({
       tasks,
       hasMore: data.has_more,
       nextCursor: data.next_cursor,
-      totalTasks: data.results?.length || 0
+      totalTasks: data.results?.length || 0,
+      totalCount: totalCount
     }, {
       headers: {
         'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30'
