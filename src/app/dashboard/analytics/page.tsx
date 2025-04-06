@@ -111,7 +111,7 @@ export default function AnalyticsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {charts.map(({ title, data, color }) => (
           <div key={title} className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold mb-4">{title}</h2>
+            <h2 className="text-lg font-semibold mb-4 text-gray-900">{title}</h2>
             {renderBarChart(data, color)}
           </div>
         ))}

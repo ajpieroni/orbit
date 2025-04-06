@@ -21,10 +21,10 @@ export default function DashboardLayout({
       {/* Sidebar */}
       <div className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-white border-r transition-all duration-300`}>
         <div className="flex items-center justify-between p-4 border-b">
-          {sidebarOpen && <h1 className="text-xl font-bold">Orbit</h1>}
+          {sidebarOpen && <h1 className="text-xl font-bold text-gray-900">Orbit</h1>}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg hover:bg-gray-100"
+            className="p-2 rounded-lg hover:bg-gray-100 text-gray-900"
           >
             {sidebarOpen ? '←' : '→'}
           </button>
@@ -35,7 +35,7 @@ export default function DashboardLayout({
               <Link 
                 href="/dashboard" 
                 className={`flex items-center p-2 rounded-lg hover:bg-gray-100 ${
-                  isActive('/dashboard') ? 'bg-blue-50 text-blue-600' : ''
+                  isActive('/dashboard') ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
                 }`}
               >
                 <span className="mr-3">📊</span>
@@ -46,7 +46,7 @@ export default function DashboardLayout({
               <Link 
                 href="/dashboard/tasks" 
                 className={`flex items-center p-2 rounded-lg hover:bg-gray-100 ${
-                  isActive('/dashboard/tasks') ? 'bg-blue-50 text-blue-600' : ''
+                  isActive('/dashboard/tasks') ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
                 }`}
               >
                 <span className="mr-3">✅</span>
@@ -57,7 +57,7 @@ export default function DashboardLayout({
               <Link 
                 href="/dashboard/calendar" 
                 className={`flex items-center p-2 rounded-lg hover:bg-gray-100 ${
-                  isActive('/dashboard/calendar') ? 'bg-blue-50 text-blue-600' : ''
+                  isActive('/dashboard/calendar') ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
                 }`}
               >
                 <span className="mr-3">📅</span>
@@ -68,7 +68,7 @@ export default function DashboardLayout({
               <Link 
                 href="/dashboard/analytics" 
                 className={`flex items-center p-2 rounded-lg hover:bg-gray-100 ${
-                  isActive('/dashboard/analytics') ? 'bg-blue-50 text-blue-600' : ''
+                  isActive('/dashboard/analytics') ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
                 }`}
               >
                 <span className="mr-3">📈</span>
@@ -83,17 +83,17 @@ export default function DashboardLayout({
       <div className="flex-1 overflow-auto">
         <header className="bg-white border-b p-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">
+            <h2 className="text-xl font-semibold text-gray-900">
               {pathname === '/dashboard' && 'Dashboard'}
               {pathname === '/dashboard/tasks' && 'Tasks'}
               {pathname === '/dashboard/calendar' && 'Calendar'}
               {pathname === '/dashboard/analytics' && 'Analytics'}
             </h2>
             <div className="flex items-center space-x-4">
-              <button className="p-2 rounded-lg hover:bg-gray-100">
+              <button className="p-2 rounded-lg hover:bg-gray-100 text-gray-900">
                 🔔
               </button>
-              <button className="p-2 rounded-lg hover:bg-gray-100">
+              <button className="p-2 rounded-lg hover:bg-gray-100 text-gray-900">
                 ⚙️
               </button>
             </div>

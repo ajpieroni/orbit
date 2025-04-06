@@ -120,10 +120,10 @@ export default function TaskList() {
         <div key={task.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start">
             <div className="flex-1">
-              <h3 className="text-lg font-medium text-black">{task.name}</h3>
+              <h3 className="text-lg font-medium text-gray-900">{task.name}</h3>
               <div className="mt-2 flex flex-wrap gap-2">
                 <div className="flex items-center gap-1">
-                  <span className="text-xs text-gray-500">Priority:</span>
+                  <span className="text-xs text-gray-700">Priority:</span>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                     task.priority === 'High' ? 'bg-red-100 text-red-800' :
                     task.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
@@ -133,7 +133,7 @@ export default function TaskList() {
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="text-xs text-gray-500">Status:</span>
+                  <span className="text-xs text-gray-700">Status:</span>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                     task.status === 'Done' ? 'bg-green-100 text-green-800' :
                     task.status === 'In progress' ? 'bg-blue-100 text-blue-800' :
@@ -144,7 +144,7 @@ export default function TaskList() {
                 </div>
                 {task.properties['Level of Effort'] && (
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-gray-500">Effort:</span>
+                    <span className="text-xs text-gray-700">Effort:</span>
                     <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                       {getPropertyValue(task.properties['Level of Effort'])}
                     </span>
@@ -152,7 +152,7 @@ export default function TaskList() {
                 )}
                 {task.properties['Zoom Out'] && (
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-gray-500">Zoom:</span>
+                    <span className="text-xs text-gray-700">Zoom:</span>
                     <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
                       {getPropertyValue(task.properties['Zoom Out'])}
                     </span>
@@ -161,8 +161,8 @@ export default function TaskList() {
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-500">Due:</span>
-              <span className="text-sm text-gray-700">
+              <span className="text-xs text-gray-700">Due:</span>
+              <span className="text-sm text-gray-900">
                 {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}
               </span>
             </div>

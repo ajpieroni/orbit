@@ -103,20 +103,20 @@ export default function ProjectMindmap({ tasks }: ProjectMindmapProps) {
               {hasChildren && (
                 <button
                   onClick={(e) => toggleNode(task.id, e)}
-                  className="w-5 h-5 flex items-center justify-center rounded hover:bg-gray-200"
+                  className="w-5 h-5 flex items-center justify-center rounded hover:bg-gray-200 text-gray-900"
                 >
                   {isExpanded ? '▼' : '▶'}
                 </button>
               )}
-              <div className="font-medium text-black">{task.name}</div>
+              <div className="font-medium text-gray-900">{task.name}</div>
               {task.status && (
-                <span className={`px-2 py-0.5 text-xs rounded-full ${getStatusColor(task.status)}`}>
+                <span className={`px-2 py-0.5 text-xs rounded-full ${getStatusColor(task.status)} text-gray-900`}>
                   {task.status}
                 </span>
               )}
             </div>
             {showDetails && (
-              <div className="mt-2 text-sm text-gray-500 space-y-1">
+              <div className="mt-2 text-sm text-gray-700 space-y-1">
                 <div>Zoom Level: {task.zoom}</div>
                 {task.dueDate && (
                   <div>Due: {new Date(task.dueDate).toLocaleDateString()}</div>
@@ -139,18 +139,18 @@ export default function ProjectMindmap({ tasks }: ProjectMindmapProps) {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center flex-wrap gap-4">
-        <h2 className="text-lg font-semibold">Project Mindmap</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Project Mindmap</h2>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <input
               type="text"
               placeholder="Search tasks..."
-              className="px-3 py-1 border rounded-lg"
+              className="px-3 py-1 border rounded-lg text-gray-900"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
             <select
-              className="px-3 py-1 border rounded-lg"
+              className="px-3 py-1 border rounded-lg text-gray-900"
               value={filterZoom}
               onChange={(e) => setFilterZoom(e.target.value)}
             >
@@ -165,7 +165,7 @@ export default function ProjectMindmap({ tasks }: ProjectMindmapProps) {
           <div className="flex items-center gap-2">
             <button
               className={`px-3 py-1 rounded-lg ${
-                viewMode === 'tree' ? 'bg-blue-100' : 'bg-gray-100'
+                viewMode === 'tree' ? 'bg-blue-100 text-blue-900' : 'bg-gray-100 text-gray-900'
               }`}
               onClick={() => setViewMode('tree')}
             >
@@ -173,7 +173,7 @@ export default function ProjectMindmap({ tasks }: ProjectMindmapProps) {
             </button>
             <button
               className={`px-3 py-1 rounded-lg ${
-                viewMode === 'radial' ? 'bg-blue-100' : 'bg-gray-100'
+                viewMode === 'radial' ? 'bg-blue-100 text-blue-900' : 'bg-gray-100 text-gray-900'
               }`}
               onClick={() => setViewMode('radial')}
             >
@@ -181,20 +181,20 @@ export default function ProjectMindmap({ tasks }: ProjectMindmapProps) {
             </button>
             <button
               className={`px-3 py-1 rounded-lg ${
-                showDetails ? 'bg-blue-100' : 'bg-gray-100'
+                showDetails ? 'bg-blue-100 text-blue-900' : 'bg-gray-100 text-gray-900'
               }`}
               onClick={() => setShowDetails(!showDetails)}
             >
               {showDetails ? 'Hide Details' : 'Show Details'}
             </button>
             <button 
-              className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200"
+              className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 text-gray-900"
               onClick={() => setExpandedNodes(new Set())}
             >
               Collapse All
             </button>
             <button 
-              className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200"
+              className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 text-gray-900"
               onClick={() => {
                 const allIds = tasks.map(t => t.id);
                 setExpandedNodes(new Set(allIds));
@@ -210,7 +210,7 @@ export default function ProjectMindmap({ tasks }: ProjectMindmapProps) {
         {filterZoom === 'all' ? (
           Object.entries(projects).map(([project, projectTasks]) => (
             <div key={project} className="mb-6">
-              <h3 className="text-lg font-medium mb-2">{project}</h3>
+              <h3 className="text-lg font-medium mb-2 text-gray-900">{project}</h3>
               <div className="space-y-2">
                 {projectTasks.map(task => renderNode(task))}
               </div>
@@ -219,7 +219,7 @@ export default function ProjectMindmap({ tasks }: ProjectMindmapProps) {
         ) : (
           <div className="space-y-2">
             {projects[filterZoom]?.map(task => renderNode(task)) || (
-              <p className="text-gray-500">No tasks found for this zoom level</p>
+              <p className="text-gray-700">No tasks found for this zoom level</p>
             )}
           </div>
         )}
