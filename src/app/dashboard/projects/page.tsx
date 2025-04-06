@@ -25,6 +25,11 @@ interface ProjectStats {
   overdueTasks: number;
 }
 
+interface ProjectSection {
+  name: string;
+  isExpanded: boolean;
+}
+
 export default function ProjectsPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +44,7 @@ export default function ProjectsPage() {
     upcomingDeadlines: 0,
     overdueTasks: 0
   });
+  const [expandedSections, setExpandedSections] = useState<{ [key: string]: boolean }>({});
 
   const fetchTasks = async (cursor: string | null = null) => {
     try {
@@ -222,6 +228,13 @@ export default function ProjectsPage() {
     );
   };
 
+  const toggleSection = (projectName: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [projectName]: !prev[projectName]
+    }));
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-8">
@@ -268,7 +281,7 @@ export default function ProjectsPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Global Project Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white p-4 rounded-lg shadow-sm">
@@ -302,36 +315,67 @@ export default function ProjectsPage() {
       </div>
 
       {/* Projects Tree View */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
+      <div className="space-y-8">
         {sortedProjects.map((project) => {
           const projectTasks = projects[project];
           const stats = getProjectStats(projectTasks);
+          const isExpanded = expandedSections[project] ?? true; // Default to expanded
+
           return (
-            <div key={project} className="mb-8">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {project === 'Other Tasks' ? 'Other Tasks' : project}
-                </h2>
-                <div className="flex space-x-4">
-                  <div className="text-center">
-                    <div className="text-sm text-gray-900">Total Tasks</div>
-                    <div className="text-lg font-semibold">{stats.totalTasks}</div>
+            <div key={project} className="bg-white rounded-lg shadow-sm overflow-hidden">
+              {/* Project Header */}
+              <div className="bg-gray-50 px-6 py-4 border-b">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-4">
+                    <button
+                      onClick={() => toggleSection(project)}
+                      className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                    >
+                      <svg
+                        className={`w-5 h-5 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </button>
+                    <h2 className="text-2xl font-semibold text-gray-900">
+                      {project === 'Other Tasks' ? 'Other Tasks' : project}
+                    </h2>
                   </div>
-                  <div className="text-center">
-                    <div className="text-sm text-gray-900">Completed</div>
-                    <div className="text-lg font-semibold text-green-900">{stats.completedTasks}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm text-gray-900">In Progress</div>
-                    <div className="text-lg font-semibold text-blue-900">{stats.inProgressTasks}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm text-gray-900">High Priority</div>
-                    <div className="text-lg font-semibold text-red-900">{stats.highPriorityTasks}</div>
+                  <div className="flex space-x-6">
+                    <div className="text-center">
+                      <div className="text-sm text-gray-900">Total Tasks</div>
+                      <div className="text-lg font-semibold">{stats.totalTasks}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-sm text-gray-900">Completed</div>
+                      <div className="text-lg font-semibold text-green-900">{stats.completedTasks}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-sm text-gray-900">In Progress</div>
+                      <div className="text-lg font-semibold text-blue-900">{stats.inProgressTasks}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-sm text-gray-900">High Priority</div>
+                      <div className="text-lg font-semibold text-red-900">{stats.highPriorityTasks}</div>
+                    </div>
                   </div>
                 </div>
               </div>
-              {renderTaskTree(transformTasksToHierarchy(projectTasks))}
+
+              {/* Project Content */}
+              <div className={`transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[5000px]' : 'max-h-0 overflow-hidden'}`}>
+                <div className="p-6">
+                  {renderTaskTree(transformTasksToHierarchy(projectTasks))}
+                </div>
+              </div>
             </div>
           );
         })}
